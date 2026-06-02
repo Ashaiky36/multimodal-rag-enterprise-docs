@@ -50,11 +50,24 @@ venv/
 # Logs and outputs
 logs/
 *.log
+
+# Exclude all outputs directory and its contents
 outputs/
-*.json
-*.pkl
-*.faiss
-*.csv
+outputs/**/*.md
+outputs/**/*.json
+outputs/**/*.jpg
+outputs/**/*.png
+outputs/**/*.html
+
+# Exclude specific markdown files
+*.md
+!README.md
+!requirements.md
+
+# Exclude sample_digital1.md and similar pattern files
+sample_digital1.md
+*sample*.md
+*_digital*.md
 
 # Data files (raw PDFs - optional, keep structure but ignore large files)
 data/*.pdf
@@ -71,6 +84,8 @@ data/*.pdf
 # FAISS indexes
 *.faiss
 *.index
+vector_store/
+*.pkl
 
 # Local LLM models (if downloaded)
 models/
@@ -100,3 +115,9 @@ htmlcov/
 # Environment variables
 .env
 .secrets
+
+# Chunks and extracted data
+*_chunks.json
+*_summary.json
+*_tables.json
+*.chunks
