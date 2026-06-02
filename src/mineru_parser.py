@@ -216,15 +216,80 @@ def extract_image_blocks(content: List, mineru_folder: Path) -> List[Dict]:
     return images
 
 
+# def create_chunks_for_rag(parsed_content: Dict, chunk_size: int = 1000) -> List[Dict]:
+#     """
+#     Create RAG-ready chunks from parsed MinerU output.
+#     Tables and images are preserved as whole chunks.
+#     """
+#     chunks = []
+#     chunk_id = 0
+    
+#     # 1. Add text chunks (split by paragraphs/headers)
+#     current_chunk = []
+#     current_length = 0
+    
+#     for block in parsed_content["text_blocks"]:
+#         block_length = block["length"]
+        
+#         if current_length + block_length > chunk_size and current_chunk:
+#             chunks.append({
+#                 "chunk_id": chunk_id,
+#                 "type": "text",
+#                 "content": "\n\n".join(current_chunk),
+#                 "source": parsed_content["source"]
+#             })
+#             chunk_id += 1
+#             current_chunk = []
+#             current_length = 0
+        
+#         current_chunk.append(block["content"])
+#         current_length += block_length
+    
+#     if current_chunk:
+#         chunks.append({
+#             "chunk_id": chunk_id,
+#             "type": "text",
+#             "content": "\n\n".join(current_chunk),
+#             "source": parsed_content["source"]
+#         })
+#         chunk_id += 1
+    
+#     # 2. Add tables as individual chunks
+#     for table in parsed_content["table_blocks"]:
+#         chunks.append({
+#             "chunk_id": chunk_id,
+#             "type": "table",
+#             "content": table["markdown"],
+#             "html": table["html"],
+#             "source": parsed_content["source"],
+#             "page_num": table.get("page_num")
+#         })
+#         chunk_id += 1
+    
+#     # 3. Add images as individual chunks
+#     for image in parsed_content["image_blocks"]:
+#         image_desc = image.get("caption", f"Chart: {image['filename']}")
+#         chunks.append({
+#             "chunk_id": chunk_id,
+#             "type": "image",
+#             "content": image_desc,
+#             "image_path": image["path"],
+#             "source": parsed_content["source"],
+#             "page_num": image.get("page_num")
+#         })
+#         chunk_id += 1
+    
+#     logger.info(f"Created {len(chunks)} RAG chunks")
+#     return chunks
+
 def create_chunks_for_rag(parsed_content: Dict, chunk_size: int = 1000) -> List[Dict]:
     """
-    Create RAG-ready chunks from parsed MinerU output.
-    Tables and images are preserved as whole chunks.
+    Create RAG-ready chunks with proper context for tables.
     """
     chunks = []
     chunk_id = 0
     
-    # 1. Add text chunks (split by paragraphs/headers)
+    # 1. Add text chunks
     current_chunk = []
     current_length = 0
     
@@ -254,19 +319,29 @@ def create_chunks_for_rag(parsed_content: Dict, chunk_size: int = 1000) -> List[
         })
         chunk_id += 1
     
-    # 2. Add tables as individual chunks
+    # 2. Add tables with rich context
     for table in parsed_content["table_blocks"]:
+        # Build rich content that includes context
+        rich_content = f"{table.get('context_before', '')}\n\n"
+        rich_content += f"TABLE DATA:\n{table['markdown']}\n\n"
+        rich_content += f"Table description: {table.get('description', '')}\n\n"
+        rich_content += f"Caption: {table.get('caption', '')}\n\n"
+        rich_content += f"{table.get('context_after', '')}"
+        
         chunks.append({
             "chunk_id": chunk_id,
             "type": "table",
-            "content": table["markdown"],
-            "html": table["html"],
+            "content": rich_content,  # Rich content for embedding/search
+            "content_for_llm": rich_content,  # Same for LLM
+            "html": table["html"],  # Original HTML for precise rendering
+            "markdown": table["markdown"],
+            "description": table.get("description", ""),
             "source": parsed_content["source"],
             "page_num": table.get("page_num")
         })
         chunk_id += 1
     
-    # 3. Add images as individual chunks
+    # 3. Add images
     for image in parsed_content["image_blocks"]:
         image_desc = image.get("caption", f"Chart: {image['filename']}")
         chunks.append({
@@ -281,8 +356,6 @@ def create_chunks_for_rag(parsed_content: Dict, chunk_size: int = 1000) -> List[
     
     logger.info(f"Created {len(chunks)} RAG chunks")
     return chunks
-
-
 # def list_mineru_outputs(output_dir: str = "outputs") -> List[Dict]:
 #     """
 #     List all MinerU-processed documents in the output directory.
@@ -331,6 +404,85 @@ def list_mineru_outputs(output_dir: str = "outputs") -> List[Dict]:
                 })
     
     return results
+
+def extract_tables_with_context(content: List, markdown: str) -> List[Dict]:
+    """
+    Extract tables with their surrounding context (headings, captions).
+    """
+    tables = []
+    markdown_lines = markdown.split('\n')
+    
+    for i, item in enumerate(content):
+        if item.get("type") == "table":
+            table_html = item.get("text", "")
+            page_num = item.get("page_num", 0)
+            
+            # Find surrounding context from markdown
+            context_before = ""
+            context_after = ""
+            
+            # Look for heading/caption in markdown near this table
+            # Tables in MinerU markdown are represented as HTML blocks
+            for j, line in enumerate(markdown_lines):
+                if '<table' in line or '<table>' in line:
+                    # Found table in markdown, look backwards for headings
+                    for k in range(max(0, j-10), j):
+                        prev_line = markdown_lines[k].strip()
+                        if prev_line.startswith('#') or 'caption' in prev_line.lower():
+                            context_before = prev_line
+                            break
+                    
+                    # Look forward for caption
+                    for k in range(j+1, min(len(markdown_lines), j+5)):
+                        next_line = markdown_lines[k].strip()
+                        if 'caption' in next_line.lower() or next_line:
+                            context_after = next_line
+                            break
+                    break
+            
+            table_block = {
+                "type": "table",
+                "html": table_html,
+                "page_num": page_num,
+                "context_before": context_before,
+                "context_after": context_after,
+                "caption": item.get("caption", context_before or context_after),
+                "markdown": html_table_to_markdown(table_html),
+                "description": generate_table_description(table_html, context_before)
+            }
+            
+            tables.append(table_block)
+    
+    return tables
+
+
+def generate_table_description(html: str, context: str) -> str:
+    """
+    Generate a natural language description of the table.
+    This helps the LLM understand what the table contains.
+    """
+    try:
+        import pandas as pd
+        dfs = pd.read_html(html)
+        if dfs:
+            df = dfs[0]
+            description = f"Table with {df.shape[0]} rows and {df.shape[1]} columns. "
+            description += f"Columns: {', '.join(df.columns.astype(str)[:10])}. "
+            
+            # Add context if available
+            if context:
+                description += f"This table is about: {context[:200]}. "
+            
+            # Add data summary for numeric columns
+            numeric_cols = df.select_dtypes(include=['number']).columns
+            if len(numeric_cols) > 0:
+                description += f"Numeric columns: {', '.join(numeric_cols[:5])}. "
+            
+            return description
+    except:
+        pass
+    
+    return f"HTML table with context: {context[:100]}" if context else "HTML table extracted from document"
 
 
 if __name__ == "__main__":
