@@ -121,3 +121,13 @@ htmlcov/
 *_summary.json
 *_tables.json
 *.chunks
+
+
+# Abandoned/not working
+docling_*
+chunk_optimizer.py
+mineru_extractor.py
+text_vision.py
+find_outputs.py
+test_setup.py
+img_path_verification.py

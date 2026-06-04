@@ -116,19 +116,50 @@ class EnhancedRetriever:
             logger.error(f"Table formatting failed: {e}")
             return html
     
+    # def _format_image(self, chunk: Dict) -> str:
+    #     """
+    #     Format image chunk for display and LLM consumption.
+    #     """
+    #     caption = chunk.get("caption", "Chart or graph from document")
+    #     path = chunk.get("image_path", "")
+    #     page_num = chunk.get("page_num", "unknown")
+        
+    #     return f"[Image: {caption} from page {page_num}]\nPath: {path}\n\nThis image requires a vision-language model to interpret. Key information may include trends, comparisons, or visual relationships not captured in the caption."
+    
+    # def _encode_image(self, image_path: Optional[str]) -> Optional[str]:
+    #     """
+    #     Encode image to base64 for VLM processing.
+    #     """
+    #     if not image_path or not Path(image_path).exists():
+    #         return None
+        
+    #     try:
+    #         with open(image_path, "rb") as f:
+    #             return base64.b64encode(f.read()).decode('utf-8')
+    #     except Exception as e:
+    #         logger.error(f"Image encoding failed: {e}")
+    #         return None
     def _format_image(self, chunk: Dict) -> str:
         """
-        Format image chunk for display and LLM consumption.
+        Format image chunk for LLM consumption.
+        Returns a descriptive string that helps retrieval.
         """
-        caption = chunk.get("caption", "Chart or graph from document")
+        caption = chunk.get("caption", chunk.get("content", "Chart from document"))
         path = chunk.get("image_path", "")
         page_num = chunk.get("page_num", "unknown")
         
-        return f"[Image: {caption} from page {page_num}]\nPath: {path}\n\nThis image requires a vision-language model to interpret. Key information may include trends, comparisons, or visual relationships not captured in the caption."
-    
+        # Create a rich description for vector search
+        description = f"[CHART] {caption} from page {page_num}. This is a visual chart/graph from the annual report. The image file is located at: {path}"
+        
+        # Store the actual path for later vision processing
+        chunk["image_path_for_vision"] = path
+        
+        return description
+
+
     def _encode_image(self, image_path: Optional[str]) -> Optional[str]:
         """
-        Encode image to base64 for VLM processing.
+        Encode image to base64 for Gemini vision.
         """
         if not image_path or not Path(image_path).exists():
             return None
@@ -139,6 +170,16 @@ class EnhancedRetriever:
         except Exception as e:
             logger.error(f"Image encoding failed: {e}")
             return None
+        
+    def get_image_paths(self) -> List[str]:
+        """
+        Get all image paths from chunks (public method).
+        """
+        image_paths = []
+        for chunk in self.chunks:
+            if chunk.get("type") == "image" and chunk.get("image_path"):
+                image_paths.append(chunk["image_path"])
+        return image_paths    
 
 
 def create_context_from_results(results: List[Dict], max_tokens: int = 2000) -> str:
@@ -166,6 +207,7 @@ def create_context_from_results(results: List[Dict], max_tokens: int = 2000) -> 
         current_length += len(part)
     
     return "\n".join(context_parts)
+
 
 
 if __name__ == "__main__":
