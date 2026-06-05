@@ -179,6 +179,55 @@ if "image_linker" not in st.session_state:
     st.session_state.image_linker = None
 
 
+# def process_uploaded_document(uploaded_file):
+#     """
+#     Process uploaded document and initialize vector store.
+#     """
+#     try:
+#         # Save uploaded file temporarily
+#         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+#             tmp_file.write(uploaded_file.getvalue())
+#             tmp_path = tmp_file.name
+        
+#         st.info(f"Processing: {uploaded_file.name}")
+        
+#         # TODO: Integrate MinerU processing here
+#         # For now, use existing processed document or show placeholder
+        
+#         # For demo, check if we have pre-processed document
+#         chunks_path = Path("outputs/sample_digital1_chunks.json")
+#         store_path = "vector_store"
+        
+#         if chunks_path.exists():
+#             # Load existing vector store
+#             vector_store = VectorStore()
+#             vector_store.load(store_path)
+#             retriever = EnhancedRetriever(vector_store, str(chunks_path))
+            
+#             # Load image linker
+#             md_path = Path("outputs/sample_digital1/auto/sample_digital1.md")
+#             images_path = "outputs/sample_digital1/auto/images"
+            
+#             if md_path.exists() and Path(images_path).exists():
+#                 image_linker = ImageLinker(str(md_path), images_path)
+#                 st.session_state.image_linker = image_linker
+            
+#             st.session_state.vector_store = vector_store
+#             st.session_state.retriever = retriever
+#             st.session_state.current_document = uploaded_file.name
+#             st.session_state.processing_complete = True
+            
+#             # Clean up temp file
+#             os.unlink(tmp_path)
+            
+#             return True
+#         else:
+#             st.error("No pre-processed document found. Please ensure MinerU has been run on your document.")
+#             return False
+            
+#     except Exception as e:
+#         st.error(f"Error processing document: {str(e)}")
+#         return False
 def process_uploaded_document(uploaded_file):
     """
     Process uploaded document and initialize vector store.
@@ -191,22 +240,30 @@ def process_uploaded_document(uploaded_file):
         
         st.info(f"Processing: {uploaded_file.name}")
         
-        # TODO: Integrate MinerU processing here
-        # For now, use existing processed document or show placeholder
+        # USE OVERLAPPING CHUNKS - UPDATE THESE PATHS
+        chunks_file = "outputs/sample_digital1_chunks_overlap.json"
+        store_dir = "vector_store_overlap"
         
-        # For demo, check if we have pre-processed document
-        chunks_path = Path("outputs/sample_digital1_chunks.json")
-        store_path = "vector_store"
+        # Check if chunks file exists
+        chunks_path = Path(chunks_file)
+        store_path = Path(store_dir)
         
-        if chunks_path.exists():
-            # Load existing vector store
+        if chunks_path.exists() and store_path.exists():
+            # Load existing vector store with overlapping chunks
+            from vector_store import VectorStore
+            from enhanced_retriever import EnhancedRetriever
+            from image_linker import ImageLinker
+            
             vector_store = VectorStore()
-            vector_store.load(store_path)
+            vector_store.load(str(store_path))
             retriever = EnhancedRetriever(vector_store, str(chunks_path))
             
             # Load image linker
             md_path = Path("outputs/sample_digital1/auto/sample_digital1.md")
             images_path = "outputs/sample_digital1/auto/images"
+            
+            if not md_path.exists():
+                md_path = Path("outputs/sample_digital1/auto/content.md")
             
             if md_path.exists() and Path(images_path).exists():
                 image_linker = ImageLinker(str(md_path), images_path)
@@ -222,13 +279,12 @@ def process_uploaded_document(uploaded_file):
             
             return True
         else:
-            st.error("No pre-processed document found. Please ensure MinerU has been run on your document.")
+            st.error(f"Pre-processed document not found. Please ensure:\n- {chunks_file} exists\n- {store_dir} exists")
             return False
             
     except Exception as e:
         st.error(f"Error processing document: {str(e)}")
         return False
-
 
 def query_document(question: str, k: int = 5):
     """
@@ -364,6 +420,17 @@ with st.sidebar:
     st.divider()
     
     # Stats
+    # if st.session_state.retriever and st.session_state.vector_store:
+    #     stats = st.session_state.vector_store.get_stats()
+    #     st.markdown("### 📊 Statistics")
+    #     col1, col2 = st.columns(2)
+    #     with col1:
+    #         st.metric("Chunks", stats.get("total_chunks", 0))
+    #     with col2:
+    #         st.metric("Dimension", stats.get("dimension", 384))
+    
+    # st.divider()
+    # Stats
     if st.session_state.retriever and st.session_state.vector_store:
         stats = st.session_state.vector_store.get_stats()
         st.markdown("### 📊 Statistics")
@@ -372,9 +439,11 @@ with st.sidebar:
             st.metric("Chunks", stats.get("total_chunks", 0))
         with col2:
             st.metric("Dimension", stats.get("dimension", 384))
-    
-    st.divider()
-    
+        
+        # Show which chunks file is being used
+        if st.session_state.get("chunks_file"):
+            st.caption(f"📁 {Path(st.session_state.chunks_file).name}")
+        
     # Reset button
     if st.button("🔄 Reset Conversation", use_container_width=True):
         st.session_state.messages = []

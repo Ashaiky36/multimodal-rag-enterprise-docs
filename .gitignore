@@ -1,3 +1,137 @@
+# # Python
+# __pycache__/
+# *.py[cod]
+# *$py.class
+# *.so
+# .Python
+# env/
+# venv/
+# ENV/
+# env.bak/
+# venv.bak/
+# *.egg-info/
+# *.egg
+# dist/
+# build/
+# eggs/
+# .eggs/
+# lib/
+# lib64/
+# parts/
+# sdist/
+# var/
+# wheels/
+# *.whl
+
+# # Jupyter Notebook
+# .ipynb_checkpoints/
+# *.ipynb
+# */.ipynb_checkpoints/*
+# .ipynb_checkpoints/*
+# ~*.ipynb
+
+# # Virtual Environment
+# venv/
+# .venv/
+# .env/
+# .envrc
+
+# # IDE
+# .vscode/
+# .idea/
+# *.swp
+# *.swo
+# *~
+# .DS_Store
+# *.sublime-*
+# .project
+# .pydevproject
+
+# # Logs and outputs
+# logs/
+# *.log
+
+# # Exclude all outputs directory and its contents
+# outputs/
+# outputs/**/*.md
+# outputs/**/*.json
+# outputs/**/*.jpg
+# outputs/**/*.png
+# outputs/**/*.html
+
+# # Exclude specific markdown files
+# *.md
+# !README.md
+# !requirements.md
+
+# # Exclude sample_digital1.md and similar pattern files
+# sample_digital1.md
+# *sample*.md
+# *_digital*.md
+
+# # Data files (raw PDFs - optional, keep structure but ignore large files)
+# data/*.pdf
+# !data/.gitkeep
+# *.tmp
+# *.temp
+
+# # OCR temporary files
+# *.png
+# *.jpg
+# *.jpeg
+# *.bmp
+
+# # FAISS indexes
+# *.faiss
+# *.index
+# vector_store/
+# *.pkl
+
+# # Local LLM models (if downloaded)
+# models/
+# *.bin
+# *.gguf
+
+# # Streamlit
+# .streamlit/secrets.toml
+# .streamlit/config.toml
+
+# # OS files
+# Thumbs.db
+# desktop.ini
+# .DS_Store
+
+# # Backup files
+# *.bak
+# *.backup
+# *.old
+
+# # Testing
+# .pytest_cache/
+# .coverage
+# htmlcov/
+# .tox/
+
+# # Environment variables
+# .env
+# .secrets
+
+# # Chunks and extracted data
+# *_chunks.json
+# *_summary.json
+# *_tables.json
+# *.chunks
+
+
+# # Abandoned/not working
+# docling_*
+# chunk_optimizer.py
+# mineru_extractor.py
+# text_vision.py
+# find_outputs.py
+# test_setup.py
+# img_path_verification.py
+
 # Python
 __pycache__/
 *.py[cod]
@@ -85,6 +219,7 @@ data/*.pdf
 *.faiss
 *.index
 vector_store/
+vector_store_overlap/
 *.pkl
 
 # Local LLM models (if downloaded)
@@ -122,8 +257,7 @@ htmlcov/
 *_tables.json
 *.chunks
 
-
-# Abandoned/not working
+# Abandoned/not working - testing files to exclude
 docling_*
 chunk_optimizer.py
 mineru_extractor.py
@@ -131,3 +265,11 @@ text_vision.py
 find_outputs.py
 test_setup.py
 img_path_verification.py
+test_vision.py
+test_retrieval_only.py
+verify_retrieval.py
+rebuild_and_test.py
+overlap_chunker.py
+image_linker.py
+image_finder.py
+document_map.py

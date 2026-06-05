@@ -34,10 +34,10 @@ class EnhancedRetriever:
         """Load chunks from JSON file."""
         with open(chunks_path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    
     def search(self, query: str, k: int = 5) -> List[Dict]:
         """
         Search and format results with proper table/image handling.
+        Now includes chunk_id for verification.
         """
         # Get search results
         results = self.vector_store.search(query, k=k)
@@ -46,6 +46,9 @@ class EnhancedRetriever:
         for result in results:
             chunk_id = result.get("chunk_id")
             chunk_type = result.get("type", "text")
+            
+            # Add chunk_id to result for easy reference
+            result["chunk_id"] = chunk_id
             
             if chunk_type == "table" and result.get("html"):
                 result["formatted_content"] = self._format_table(result["html"])
@@ -62,6 +65,33 @@ class EnhancedRetriever:
                 result["content_for_llm"] = result["content"]
         
         return results
+    # def search(self, query: str, k: int = 5) -> List[Dict]:
+    #     """
+    #     Search and format results with proper table/image handling.
+    #     """
+    #     # Get search results
+    #     results = self.vector_store.search(query, k=k)
+        
+    #     # Enhance each result with formatted content
+    #     for result in results:
+    #         chunk_id = result.get("chunk_id")
+    #         chunk_type = result.get("type", "text")
+            
+    #         if chunk_type == "table" and result.get("html"):
+    #             result["formatted_content"] = self._format_table(result["html"])
+    #             result["content_for_llm"] = result["formatted_content"]
+            
+    #         elif chunk_type == "image" and result.get("image_path"):
+    #             result["formatted_content"] = self._format_image(result)
+    #             result["content_for_llm"] = result.get("caption", "Chart image")
+    #             result["image_base64"] = self._encode_image(result.get("image_path"))
+            
+    #         else:
+    #             # Plain text
+    #             result["formatted_content"] = result["content"]
+    #             result["content_for_llm"] = result["content"]
+        
+    #     return results
     
     def _format_table(self, html: str) -> str:
         """
