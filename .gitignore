@@ -259,7 +259,7 @@ htmlcov/
 
 # Abandoned/not working - testing files to exclude
 docling_*
-chunk_optimizer.py
+#chunk_optimizer.py
 mineru_extractor.py
 text_vision.py
 find_outputs.py
@@ -269,7 +269,22 @@ test_vision.py
 test_retrieval_only.py
 verify_retrieval.py
 rebuild_and_test.py
-overlap_chunker.py
-image_linker.py
+#overlap_chunker.py
+# image_linker.py
 image_finder.py
 document_map.py
+app2.py
+test_find_md.py
+
+# Exclude all processed documents
+processed_docs/
+processed_docs/*
+processed_docs/**/*
+
+# Also exclude vector stores (they contain large binary files)
+vector_store/
+vector_store_overlap/
+
+# Exclude session temp directories
+session_*/
+session_*/*

@@ -8,10 +8,10 @@ import os
 import sys
 import tempfile
 import shutil
+import atexit
 from pathlib import Path
 from datetime import datetime
 import hashlib
-import time
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent / "src"))
@@ -21,8 +21,9 @@ from vector_store import VectorStore
 from enhanced_retriever import EnhancedRetriever
 from gemini_client import GeminiClient
 from image_linker import ImageLinker
+from document_processor import DocumentProcessor
 
-# Page configuration - MUST be first Streamlit command
+# Page configuration
 st.set_page_config(
     page_title="Document Intelligence | Corporate RAG",
     page_icon="📊",
@@ -33,28 +34,10 @@ st.set_page_config(
 # Custom CSS for premium corporate design
 st.markdown("""
 <style>
-    /* Main container */
-    .main {
-        background-color: #f8fafc;
-    }
-    
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background-color: #0f172a;
-        padding: 2rem 1rem;
-    }
-    
-    [data-testid="stSidebar"] .stMarkdown {
-        color: #e2e8f0;
-    }
-    
-    /* Headers */
-    h1, h2, h3 {
-        color: #0f172a;
-        font-weight: 600;
-    }
-    
-    /* Chat messages */
+    .main { background-color: #f8fafc; }
+    [data-testid="stSidebar"] { background-color: #0f172a; padding: 2rem 1rem; }
+    [data-testid="stSidebar"] .stMarkdown { color: #e2e8f0; }
+    h1, h2, h3 { color: #0f172a; font-weight: 600; }
     .user-message {
         background-color: #eef2ff;
         border-radius: 12px;
@@ -62,7 +45,6 @@ st.markdown("""
         margin: 8px 0;
         border-left: 4px solid #4f46e5;
     }
-    
     .assistant-message {
         background-color: #ffffff;
         border-radius: 12px;
@@ -71,8 +53,6 @@ st.markdown("""
         border: 1px solid #e2e8f0;
         border-left: 4px solid #10b981;
     }
-    
-    /* Source cards */
     .source-card {
         background-color: #f1f5f9;
         border-radius: 8px;
@@ -81,64 +61,6 @@ st.markdown("""
         border-left: 3px solid #6366f1;
         font-size: 0.85rem;
     }
-    
-    .source-header {
-        font-weight: 600;
-        color: #4f46e5;
-        margin-bottom: 8px;
-    }
-    
-    /* Upload section */
-    .upload-container {
-        border: 2px dashed #cbd5e1;
-        border-radius: 12px;
-        padding: 2rem;
-        text-align: center;
-        background-color: #f8fafc;
-    }
-    
-    /* Metrics */
-    .metric-card {
-        background-color: #ffffff;
-        border-radius: 12px;
-        padding: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        text-align: center;
-    }
-    
-    .metric-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #0f172a;
-    }
-    
-    .metric-label {
-        font-size: 0.8rem;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    /* Status badges */
-    .badge-success {
-        background-color: #dcfce7;
-        color: #166534;
-        padding: 4px 8px;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 500;
-    }
-    
-    .badge-warning {
-        background-color: #fef9c3;
-        color: #854d0e;
-        padding: 4px 8px;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 500;
-    }
-    
-    /* Footer */
     .footer {
         text-align: center;
         padding: 1.5rem;
@@ -147,149 +69,120 @@ st.markdown("""
         border-top: 1px solid #e2e8f0;
         margin-top: 2rem;
     }
-    
-    /* Custom button */
-    .stButton button {
-        background-color: #4f46e5;
-        color: white;
-        border-radius: 8px;
-        font-weight: 500;
-    }
-    
-    .stButton button:hover {
-        background-color: #6366f1;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "vector_store" not in st.session_state:
-    st.session_state.vector_store = None
-if "retriever" not in st.session_state:
-    st.session_state.retriever = None
-if "current_document" not in st.session_state:
-    st.session_state.current_document = None
-if "processing_complete" not in st.session_state:
-    st.session_state.processing_complete = False
-if "rag_chain" not in st.session_state:
-    st.session_state.rag_chain = None
-if "image_linker" not in st.session_state:
-    st.session_state.image_linker = None
+
+def init_session_state():
+    """Initialize all session state variables."""
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "retriever" not in st.session_state:
+        st.session_state.retriever = None
+    if "vector_store" not in st.session_state:
+        st.session_state.vector_store = None
+    if "image_linker" not in st.session_state:
+        st.session_state.image_linker = None
+    if "current_doc_id" not in st.session_state:
+        st.session_state.current_doc_id = None
+    if "current_doc_name" not in st.session_state:
+        st.session_state.current_doc_name = None
+    if "processing_complete" not in st.session_state:
+        st.session_state.processing_complete = False
+    if "last_uploaded_file_hash" not in st.session_state:
+        st.session_state.last_uploaded_file_hash = None
+    if "is_processing" not in st.session_state:
+        st.session_state.is_processing = False
+    if "processor" not in st.session_state:
+        st.session_state.processor = DocumentProcessor("processed_docs")
 
 
-# def process_uploaded_document(uploaded_file):
-#     """
-#     Process uploaded document and initialize vector store.
-#     """
-#     try:
-#         # Save uploaded file temporarily
-#         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-#             tmp_file.write(uploaded_file.getvalue())
-#             tmp_path = tmp_file.name
-        
-#         st.info(f"Processing: {uploaded_file.name}")
-        
-#         # TODO: Integrate MinerU processing here
-#         # For now, use existing processed document or show placeholder
-        
-#         # For demo, check if we have pre-processed document
-#         chunks_path = Path("outputs/sample_digital1_chunks.json")
-#         store_path = "vector_store"
-        
-#         if chunks_path.exists():
-#             # Load existing vector store
-#             vector_store = VectorStore()
-#             vector_store.load(store_path)
-#             retriever = EnhancedRetriever(vector_store, str(chunks_path))
-            
-#             # Load image linker
-#             md_path = Path("outputs/sample_digital1/auto/sample_digital1.md")
-#             images_path = "outputs/sample_digital1/auto/images"
-            
-#             if md_path.exists() and Path(images_path).exists():
-#                 image_linker = ImageLinker(str(md_path), images_path)
-#                 st.session_state.image_linker = image_linker
-            
-#             st.session_state.vector_store = vector_store
-#             st.session_state.retriever = retriever
-#             st.session_state.current_document = uploaded_file.name
-#             st.session_state.processing_complete = True
-            
-#             # Clean up temp file
-#             os.unlink(tmp_path)
-            
-#             return True
-#         else:
-#             st.error("No pre-processed document found. Please ensure MinerU has been run on your document.")
-#             return False
-            
-#     except Exception as e:
-#         st.error(f"Error processing document: {str(e)}")
-#         return False
+# Call initialization
+init_session_state()
+
+
 def process_uploaded_document(uploaded_file):
     """
-    Process uploaded document and initialize vector store.
+    Process a single uploaded document.
+    Only processes if it's a new document.
     """
-    try:
+    if uploaded_file is None:
+        return False
+    
+    # Calculate file hash
+    file_hash = hashlib.md5(uploaded_file.getvalue()).hexdigest()[:12]
+    
+    # Check if this exact file was already processed
+    if st.session_state.last_uploaded_file_hash == file_hash and st.session_state.processing_complete:
+        st.info(f"Document already loaded: {st.session_state.current_doc_name}")
+        return True
+    
+    # Check if already processed in processed_docs folder
+    for doc_dir in Path("processed_docs").iterdir():
+        if doc_dir.is_dir() and doc_dir.name.startswith(file_hash[:8]):
+            st.info(f"Loading previously processed document...")
+            result = st.session_state.processor.load_document(doc_dir.name)
+            if result["success"]:
+                st.session_state.retriever = result["retriever"]
+                st.session_state.vector_store = result["vector_store"]
+                st.session_state.image_linker = result["image_linker"]
+                st.session_state.current_doc_id = doc_dir.name
+                st.session_state.current_doc_name = uploaded_file.name
+                st.session_state.processing_complete = True
+                st.session_state.last_uploaded_file_hash = file_hash
+                return True
+    
+    # Set processing flag to prevent duplicate processing
+    st.session_state.is_processing = True
+    
+    # Process new document
+    with st.spinner(f"Processing {uploaded_file.name}... (this may take 3-5 minutes)"):
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
             tmp_file.write(uploaded_file.getvalue())
             tmp_path = tmp_file.name
         
-        st.info(f"Processing: {uploaded_file.name}")
-        
-        # USE OVERLAPPING CHUNKS - UPDATE THESE PATHS
-        chunks_file = "outputs/sample_digital1_chunks_overlap.json"
-        store_dir = "vector_store_overlap"
-        
-        # Check if chunks file exists
-        chunks_path = Path(chunks_file)
-        store_path = Path(store_dir)
-        
-        if chunks_path.exists() and store_path.exists():
-            # Load existing vector store with overlapping chunks
-            from vector_store import VectorStore
-            from enhanced_retriever import EnhancedRetriever
-            from image_linker import ImageLinker
+        try:
+            # Process document
+            result = st.session_state.processor.process_document(
+                tmp_path, 
+                uploaded_file.name.replace(".pdf", "")
+            )
             
-            vector_store = VectorStore()
-            vector_store.load(str(store_path))
-            retriever = EnhancedRetriever(vector_store, str(chunks_path))
-            
-            # Load image linker
-            md_path = Path("outputs/sample_digital1/auto/sample_digital1.md")
-            images_path = "outputs/sample_digital1/auto/images"
-            
-            if not md_path.exists():
-                md_path = Path("outputs/sample_digital1/auto/content.md")
-            
-            if md_path.exists() and Path(images_path).exists():
-                image_linker = ImageLinker(str(md_path), images_path)
-                st.session_state.image_linker = image_linker
-            
-            st.session_state.vector_store = vector_store
-            st.session_state.retriever = retriever
-            st.session_state.current_document = uploaded_file.name
-            st.session_state.processing_complete = True
-            
-            # Clean up temp file
-            os.unlink(tmp_path)
-            
-            return True
-        else:
-            st.error(f"Pre-processed document not found. Please ensure:\n- {chunks_file} exists\n- {store_dir} exists")
+            if result["success"]:
+                # Load the processed document components
+                doc_id = result["doc_id"]
+                load_result = st.session_state.processor.load_document(doc_id)
+                
+                if load_result["success"]:
+                    st.session_state.retriever = load_result["retriever"]
+                    st.session_state.vector_store = load_result["vector_store"]
+                    st.session_state.image_linker = load_result["image_linker"]
+                    st.session_state.current_doc_id = doc_id
+                    st.session_state.current_doc_name = uploaded_file.name
+                    st.session_state.processing_complete = True
+                    st.session_state.last_uploaded_file_hash = file_hash
+                    st.session_state.messages = []
+                    st.success(f"✅ Document ready: {uploaded_file.name}")
+                    return True
+            else:
+                st.error(f"Processing failed: {result.get('error', 'Unknown error')}")
+                return False
+                
+        except Exception as e:
+            st.error(f"Error: {e}")
             return False
-            
-    except Exception as e:
-        st.error(f"Error processing document: {str(e)}")
-        return False
+        finally:
+            # Clean up temp file
+            if Path(tmp_path).exists():
+                os.unlink(tmp_path)
+            st.session_state.is_processing = False
+    
+    return False
+
 
 def query_document(question: str, k: int = 5):
-    """
-    Query the document and return answer with sources.
-    """
+    """Query the document and return answer with sources."""
     if not st.session_state.retriever:
         return None
     
@@ -357,8 +250,7 @@ ANSWER:"""
                 "index": i + 1,
                 "type": result.get("type", "text"),
                 "similarity": result.get("similarity_score", 0),
-                "content": result.get("content", "")[:500],
-                "full_content": result.get("content", "")
+                "content": result.get("content", "")[:500]
             })
         
         return {
@@ -378,7 +270,6 @@ ANSWER:"""
 
 # Sidebar
 with st.sidebar:
-    # Logo / Brand
     st.markdown("""
     <div style="text-align: center; margin-bottom: 2rem;">
         <h2 style="color: #ffffff;">📊</h2>
@@ -388,26 +279,27 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     # Document Upload Section
-    st.markdown("### 📄 Document")
+    st.markdown("### 📄 Upload Document")
     
     uploaded_file = st.file_uploader(
         "Upload Annual Report (PDF)",
         type=["pdf"],
+        key="doc_uploader",
         help="Upload a PDF document to analyze"
     )
     
-    if uploaded_file and st.session_state.current_document != uploaded_file.name:
-        with st.spinner("Processing document..."):
-            if process_uploaded_document(uploaded_file):
-                st.success(f"✅ Ready: {uploaded_file.name}")
-                st.session_state.messages = []  # Clear chat history
-            else:
-                st.error("Processing failed")
+    if uploaded_file and not st.session_state.is_processing:
+        # Check if this is a new file (different from last uploaded)
+        current_hash = hashlib.md5(uploaded_file.getvalue()).hexdigest()[:12]
+        if current_hash != st.session_state.last_uploaded_file_hash:
+            process_uploaded_document(uploaded_file)
+            st.rerun()
     
-    if st.session_state.current_document:
+    if st.session_state.processing_complete and st.session_state.current_doc_name:
         st.markdown(f"""
-        <div class="badge-success" style="display: inline-block;">
-            Active: {st.session_state.current_document[:30]}...
+        <div style="background-color: #1e293b; padding: 0.5rem; border-radius: 8px; margin: 0.5rem 0;">
+            <span style="color: #10b981;">✅ Active:</span>
+            <span style="color: #e2e8f0; font-size: 0.8rem;">{st.session_state.current_doc_name[:30]}...</span>
         </div>
         """, unsafe_allow_html=True)
     
@@ -415,23 +307,12 @@ with st.sidebar:
     
     # Settings
     st.markdown("### ⚙️ Settings")
-    k_value = st.slider("Retrieval Depth (k)", min_value=3, max_value=10, value=5, help="Number of chunks to retrieve")
+    k_value = st.slider("Retrieval Depth (k)", min_value=3, max_value=10, value=5)
     
     st.divider()
     
     # Stats
-    # if st.session_state.retriever and st.session_state.vector_store:
-    #     stats = st.session_state.vector_store.get_stats()
-    #     st.markdown("### 📊 Statistics")
-    #     col1, col2 = st.columns(2)
-    #     with col1:
-    #         st.metric("Chunks", stats.get("total_chunks", 0))
-    #     with col2:
-    #         st.metric("Dimension", stats.get("dimension", 384))
-    
-    # st.divider()
-    # Stats
-    if st.session_state.retriever and st.session_state.vector_store:
+    if st.session_state.vector_store:
         stats = st.session_state.vector_store.get_stats()
         st.markdown("### 📊 Statistics")
         col1, col2 = st.columns(2)
@@ -439,19 +320,29 @@ with st.sidebar:
             st.metric("Chunks", stats.get("total_chunks", 0))
         with col2:
             st.metric("Dimension", stats.get("dimension", 384))
-        
-        # Show which chunks file is being used
-        if st.session_state.get("chunks_file"):
-            st.caption(f"📁 {Path(st.session_state.chunks_file).name}")
-        
-    # Reset button
+    
+    st.divider()
+    
+    # Reset conversation
     if st.button("🔄 Reset Conversation", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+    
+    # Clear session (delete current document from memory, not disk)
+    if st.button("🗑️ Clear Document", use_container_width=True):
+        st.session_state.retriever = None
+        st.session_state.vector_store = None
+        st.session_state.image_linker = None
+        st.session_state.current_doc_id = None
+        st.session_state.current_doc_name = None
+        st.session_state.processing_complete = False
+        st.session_state.last_uploaded_file_hash = None
         st.session_state.messages = []
         st.rerun()
     
     # Footer
     st.markdown("""
-    <div style="position: fixed; bottom: 1rem; left: 1rem; right: 1rem;">
+    <div style="margin-top: 2rem;">
         <p style="color: #475569; font-size: 0.7rem; text-align: center;">
             Powered by Gemini 2.5 Flash<br>
             MinerU | FAISS | Streamlit
@@ -468,48 +359,38 @@ with col2:
 
 st.divider()
 
-# Status indicator
+# Chat interface
 if not st.session_state.processing_complete:
     st.info("👈 Please upload a document from the sidebar to begin.")
 else:
-    # Chat interface
-    chat_container = st.container()
-    
-    with chat_container:
-        # Display chat history
-        for message in st.session_state.messages:
-            if message["role"] == "user":
-                st.markdown(f"""
-                <div class="user-message">
-                    <strong>You</strong><br>{message["content"]}
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                # Assistant message with possible sources
-                st.markdown(f"""
-                <div class="assistant-message">
-                    <strong>Assistant</strong><br>{message["content"]}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Display sources if available
-                if message.get("sources"):
-                    with st.expander("📚 View Sources"):
-                        for source in message["sources"]:
-                            st.markdown(f"""
-                            <div class="source-card">
-                                <div class="source-header">
-                                    Source {source['index']} | {source['type'].upper()} | Similarity: {source['similarity']:.3f}
-                                </div>
-                                <div style="font-family: monospace; font-size: 0.8rem;">
-                                    {source['content']}...
-                                </div>
+    # Display chat history
+    for message in st.session_state.messages:
+        if message["role"] == "user":
+            st.markdown(f"""
+            <div class="user-message">
+                <strong>You</strong><br>{message["content"]}
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="assistant-message">
+                <strong>Assistant</strong><br>{message["content"]}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if message.get("sources"):
+                with st.expander("📚 View Sources"):
+                    for source in message["sources"]:
+                        st.markdown(f"""
+                        <div class="source-card">
+                            <div style="font-weight: 600; color: #4f46e5;">
+                                Source {source['index']} | {source['type'].upper()} | Similarity: {source['similarity']:.3f}
                             </div>
-                            """, unsafe_allow_html=True)
-                
-                # Display images if used
-                if message.get("images"):
-                    st.caption(f"📷 Analyzed {len(message['images'])} chart(s)")
+                            <div style="font-family: monospace; font-size: 0.8rem;">
+                                {source['content']}...
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
     
     # Input area
     st.divider()
@@ -519,7 +400,7 @@ else:
         with col1:
             user_input = st.text_input(
                 "Ask a question about the document",
-                placeholder="e.g., What is the shareholding pattern? or Describe the revenue trend...",
+                placeholder="e.g., What is the shareholding pattern?",
                 key="user_input",
                 label_visibility="collapsed"
             )
@@ -527,22 +408,17 @@ else:
             send_button = st.button("Send", use_container_width=True)
     
     if send_button and user_input:
-        # Add user message
         st.session_state.messages.append({"role": "user", "content": user_input})
         
-        # Generate response
         with st.spinner("Analyzing document..."):
             result = query_document(user_input, k=k_value)
         
         if result:
-            # Add assistant message with sources
-            assistant_message = {
+            st.session_state.messages.append({
                 "role": "assistant",
                 "content": result["answer"],
-                "sources": result.get("sources", []),
-                "images": result.get("images", [])
-            }
-            st.session_state.messages.append(assistant_message)
+                "sources": result.get("sources", [])
+            })
         
         st.rerun()
 
