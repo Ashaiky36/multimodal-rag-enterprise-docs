@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  multimodal-rag:
+    build: .
+    container_name: multimodal-rag-v3
+    ports:
+      - "8501:8501"
+      - "11434:11434"  # Optional: expose Ollama API
+    volumes:
+      - ./processed_docs:/app/processed_docs
+      - ./outputs:/app/outputs
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS="*"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
