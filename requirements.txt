@@ -1,0 +1,32 @@
+# Core UI and Web Framework
+streamlit
+
+# High-Performance Layout Extraction (MinerU Backend Stack)
+# ch_anti_topb_vlm_layout==0.2.0
+magic-pdf[full]>=0.7.0
+mineru
+
+# Fallback Parsers & Image Management
+pdfplumber
+pdf2image
+pytesseract
+camelot-py
+pillow
+
+# Vector Search & Embeddings
+faiss-cpu
+sentence-transformers
+
+# Modern LLM & API Clients
+google-genai
+requests
+
+# Data Processing
+pandas
+numpy
+
+# Utilities
+tqdm
+beautifulsoup4
+python-multipart
+python-dotenv
