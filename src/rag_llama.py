@@ -27,7 +27,7 @@ class LlamaRAG:
     """
     
     def __init__(self, retriever, 
-                 text_model: str = "llama3.2:3b",
+                 text_model: str = "llama3.1:8b-instruct-q3_K_L",
                  vision_model: str = "qwen2.5vl:3b"):
         self.retriever = retriever
         self.text_model = text_model
@@ -128,23 +128,42 @@ class LlamaRAG:
             chunk_type = chunk.get("type", "text")
             context_parts.append(f"[Source {i+1} - Type: {chunk_type}]\n{content}")
         return "\n\n".join(context_parts)
-    
+
     def _build_prompt(self, question: str, context: str) -> str:
-        """Build prompt for Llama."""
-        return f"""You are a financial analyst. Answer the question based ONLY on the context below.
+        """Build prompt with better instructions for smaller models."""
+        return f"""You are a financial auditor analyzing an annual report.
 
-CONTEXT:
-{context}
+    CONTEXT:
+    {context}
 
-QUESTION: {question}
+    USER QUESTION:
+    {question}
 
-INSTRUCTIONS:
-- Extract exact numbers from tables and vision descriptions
-- If you see [VISION DESCRIPTION], treat it as authoritative data
-- Be precise and concise
-- If you cannot find the answer, say so
+    IMPORTANT INSTRUCTIONS:
+    1. READ the context carefully. The user may use different wording than the context (e.g., "Whistle Blower" = "unethical reporting code").
+    2. If the context contains HTML tables, READ them as tables - the columns and rows are structured.
+    3. If calculations are needed (percentages, differences, growth rates), SHOW your step-by-step math.
+    4. If you cannot find the exact answer, say "I cannot find this information in the provided context."
+    5. Be precise with numbers - extract them exactly as they appear.
 
-ANSWER:"""
+    ANSWER:"""    
+    
+#     def _build_prompt(self, question: str, context: str) -> str:
+#         """Build prompt for Llama."""
+#         return f"""You are a financial analyst. Answer the question based ONLY on the context below.
+
+# CONTEXT:
+# {context}
+
+# QUESTION: {question}
+
+# INSTRUCTIONS:
+# - Extract exact numbers from tables and vision descriptions
+# - If you see [VISION DESCRIPTION], treat it as authoritative data
+# - Be precise and concise
+# - If you cannot find the answer, say so
+
+# ANSWER:"""
 
 
 def create_llama_rag(chunks_file: str, store_dir: str = "vector_store") -> LlamaRAG:
