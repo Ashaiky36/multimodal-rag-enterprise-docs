@@ -810,35 +810,69 @@ def process_uploaded_document(uploaded_file):
     }
     st.rerun()
 
-
 def query_document(question: str, k: int = 5):
-    """Query using local Llama models."""
+    """Query using local Llama models with optimized token settings."""
     if not st.session_state.retriever:
         return None
     
     try:
         if st.session_state.rag:
+            # Update the RAG instance with new token settings
+            st.session_state.rag.num_predict = 4096
+            st.session_state.rag.num_ctx = 8192
             result = st.session_state.rag.query(question, k=k)
             return {
                 "answer": result["answer"],
                 "sources": result.get("sources", []),
-                "used_vision": result.get("used_vision", False)
+                "used_vision": result.get("used_vision", False),
+                "response_length": result.get("response_length", 0)
             }
         else:
             from rag_llama import LlamaRAG
             rag = LlamaRAG(
                 retriever=st.session_state.retriever,
-                text_model="llama3.2:3b",
+                text_model="llama3.1:8b-instruct-q3_K_L",
                 vision_model="qwen2.5vl:3b"
             )
+            rag.num_predict = 4096
+            rag.num_ctx = 8192
             result = rag.query(question, k=k)
             return {
                 "answer": result["answer"],
                 "sources": result.get("sources", []),
-                "used_vision": result.get("used_vision", False)
+                "used_vision": result.get("used_vision", False),
+                "response_length": result.get("response_length", 0)
             }
     except Exception as e:
         return {"answer": f"Error: {str(e)}", "sources": [], "images": []}
+# def query_document(question: str, k: int = 5):
+#     """Query using local Llama models."""
+#     if not st.session_state.retriever:
+#         return None
+    
+#     try:
+#         if st.session_state.rag:
+#             result = st.session_state.rag.query(question, k=k)
+#             return {
+#                 "answer": result["answer"],
+#                 "sources": result.get("sources", []),
+#                 "used_vision": result.get("used_vision", False)
+#             }
+#         else:
+#             from rag_llama import LlamaRAG
+#             rag = LlamaRAG(
+#                 retriever=st.session_state.retriever,
+#                 text_model="llama3.2:3b",
+#                 vision_model="qwen2.5vl:3b"
+#             )
+#             result = rag.query(question, k=k)
+#             return {
+#                 "answer": result["answer"],
+#                 "sources": result.get("sources", []),
+#                 "used_vision": result.get("used_vision", False)
+#             }
+#     except Exception as e:
+#         return {"answer": f"Error: {str(e)}", "sources": [], "images": []}
 
 
 # Sidebar
@@ -981,6 +1015,10 @@ else:
             
             if result:
                 st.markdown(result["answer"])
+                
+                if result.get("response_length"):
+                    st.caption(f"📝 Response: {result['response_length']} characters")
+
                 
                 if result.get("sources"):
                     with st.expander("📚 View Sources"):
