@@ -130,7 +130,7 @@ class LlamaRAG:
         return "\n\n".join(context_parts)
 
     def _build_prompt(self, question: str, context: str) -> str:
-        """Build prompt with better instructions for smaller models."""
+        """Build prompt that forbids quoting sources."""
         return f"""You are a financial auditor analyzing an annual report.
 
     CONTEXT:
@@ -139,14 +139,36 @@ class LlamaRAG:
     USER QUESTION:
     {question}
 
-    IMPORTANT INSTRUCTIONS:
-    1. READ the context carefully. The user may use different wording than the context (e.g., "Whistle Blower" = "unethical reporting code").
-    2. If the context contains HTML tables, READ them as tables - the columns and rows are structured.
-    3. If calculations are needed (percentages, differences, growth rates), SHOW your step-by-step math.
-    4. If you cannot find the exact answer, say "I cannot find this information in the provided context."
-    5. Be precise with numbers - extract them exactly as they appear.
+    CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:
+    1. DO NOT quote, copy, or reproduce any part of the context in your answer.
+    2. DO NOT say "According to the context" or "Based on the table above".
+    3. DO NOT reproduce tables, HTML, or large blocks of text from the context.
+    4. READ the context silently, then write your answer in your own words.
+    5. If the user uses different terminology (e.g., "Whistle Blower" = "unethical reporting code"), map it correctly.
+    6. If calculations are needed (percentages, differences, growth rates), SHOW the math concisely (e.g., "7283 - 7226 = 57").
+    7. Extract numbers exactly as they appear, but present them cleanly.
+    8. If you cannot find the exact answer, say "I cannot find this information in the provided context."
 
-    ANSWER:"""    
+    ANSWER (your own words, no quotes from context):"""    
+
+    # def _build_prompt(self, question: str, context: str) -> str:
+    #     """Build prompt with better instructions for smaller models."""
+    #     return f"""You are a financial auditor analyzing an annual report.
+
+    # CONTEXT:
+    # {context}
+
+    # USER QUESTION:
+    # {question}
+
+    # IMPORTANT INSTRUCTIONS:
+    # 1. READ the context carefully. The user may use different wording than the context (e.g., "Whistle Blower" = "unethical reporting code").
+    # 2. If the context contains HTML tables, READ them as tables - the columns and rows are structured.
+    # 3. If calculations are needed (percentages, differences, growth rates), SHOW your step-by-step math.
+    # 4. If you cannot find the exact answer, say "I cannot find this information in the provided context."
+    # 5. Be precise with numbers - extract them exactly as they appear.
+
+    # ANSWER:"""    
     
 
 
