@@ -155,13 +155,31 @@ CONTEXT:
 
 QUESTION: {question}
 
-INSTRUCTIONS:
-1. Start answering immediately. No filler.
-2. If citing data, state values directly.
-3. Show math concisely (e.g., "7283 - 7226 = 57").
-4. If you cannot find the answer, say so.
+CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:
+1. DO NOT quote, copy, or reproduce ANY part of the context in your answer.
+2. DO NOT say "According to the context" or "Based on the table above".
+3. DO NOT reproduce tables, HTML, or large blocks of text.
+4. READ the context silently, then write your answer in your own words.
+5. If citing data, state values directly without referencing the source.
+6. Show math concisely (e.g., "7283 - 7226 = 57").
+7. If you cannot find the answer, say "I cannot find this information."
 
-ANSWER:"""
+ANSWER (your own words, no quotes):"""
+    
+#     prompt = f"""You are a precise financial analyst. Answer directly using ONLY the context.
+
+# CONTEXT:
+# {context}
+
+# QUESTION: {question}
+
+# INSTRUCTIONS:
+# 1. Start answering immediately. No filler.
+# 2. If citing data, state values directly.
+# 3. Show math concisely (e.g., "7283 - 7226 = 57").
+# 4. If you cannot find the answer, say so.
+
+# ANSWER:"""
     
     print(f"Generating answer with {model}...")
     print(f"Model config: num_predict=4096, num_ctx=8192")
