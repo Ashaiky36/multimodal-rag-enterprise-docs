@@ -115,7 +115,7 @@ from vector_store import VectorStore
 from enhanced_retriever import EnhancedRetriever
 
 
-def query_rag(question: str, doc_name: str, k: int = 5, model: str = "llama3.1:8b-instruct-q3_K_L"):
+def query_rag(question: str, doc_name: str, k: int = 5, model: str = "gemma3:4b-it-qat"):
     """
     Query the RAG system with optimized token settings.
     """
@@ -188,16 +188,26 @@ ANSWER (your own words, no quotes):"""
         model=model,
         prompt=prompt,
         options={
-              "temperature": 0.1,
-              "num_predict": 2048,           # REDUCED from 4096 (still gives ~1500 words)
-              "num_ctx": 4096,               # REDUCED from 8192 (still fits medium tables)
-              "num_batch": 512,              # ADDED: Processes tokens in smaller batches
-              "num_gpu": 35,                 # ADDED: Offloads 35 layers to GPU
-              "main_gpu": 0,                 # ADDED: Uses GPU 0 for main computation
-              "tensor_split": "4,4",          # Splits compute between VRAM and system RAM
-              "top_k": 40,
-              "top_p": 0.9,
-              "repeat_penalty": 1.1
+             "temperature": 0.1,
+             "num_predict": 4096,              # Longer responses
+             "num_ctx": 8192,                  # Large context
+             "num_batch": 512,
+             "num_gpu": 40,                    # Use more GPU layers
+             "main_gpu": 0,
+             "tensor_split": "4,4",            # Balanced split
+             "top_k": 40,
+             "top_p": 0.9,
+             "repeat_penalty": 1.1
+            #   "temperature": 0.1,
+            #   "num_predict": 2048,           # REDUCED from 4096 (still gives ~1500 words)
+            #   "num_ctx": 4096,               # REDUCED from 8192 (still fits medium tables)
+            #   "num_batch": 512,              # ADDED: Processes tokens in smaller batches
+            #   "num_gpu": 35,                 # ADDED: Offloads 35 layers to GPU
+            #   "main_gpu": 0,                 # ADDED: Uses GPU 0 for main computation
+            #   "tensor_split": "4,4",          # Splits compute between VRAM and system RAM
+            #   "top_k": 40,
+            #   "top_p": 0.9,
+            #   "repeat_penalty": 1.1
             # "temperature": 0.1,
             # "num_predict": 4096,   # MAX RESPONSE TOKENS
             # "num_ctx": 8192,       # CONTEXT WINDOW
