@@ -27,7 +27,7 @@ class LlamaRAG:
     """
     
     def __init__(self, retriever, 
-                 text_model: str = "llama3.1:8b-instruct-q3_K_L",
+                 text_model: str = "gemma3:4b-it-qat",
                  vision_model: str = "qwen2.5vl:3b"):
         self.retriever = retriever
         self.text_model = text_model
